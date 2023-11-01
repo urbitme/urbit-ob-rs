@@ -1,8 +1,8 @@
-use std::{collections::HashMap, ops::Add, cmp::PartialEq};
-use num_bigint::BigUint;
-use num_traits::{Pow, ToPrimitive};
-use lazy_static::lazy_static;
 use hex;
+use lazy_static::lazy_static;
+use num_bigint::BigUint;
+use num_traits::Pow;
+use std::{cmp::PartialEq, collections::HashMap, ops::Add};
 
 use super::ob::{fein, fynd};
 
@@ -91,7 +91,6 @@ lazy_static! {
 }
 
 fn bex(n: &BigUint) -> BigUint {
-    // println!("{:?}", n);
     BigUint::from(2_u8).pow(n)
 }
 
@@ -112,7 +111,6 @@ fn end(a: &BigUint, b: &BigUint, c: &BigUint) -> BigUint {
     c % bex(&(bex(a) * b))
 }
 
-
 /**
  * Convert a number to a @q-encoded string.
  *
@@ -131,8 +129,20 @@ pub fn patq(n: &BigUint) -> String {
  * @return  {String}
  */
 fn buf2patq(buf: &[u8]) -> String {
+    buf2pat(buf, ".~", false, false)
+}
+
+fn buf2patp(buf: &[u8]) -> String {
+    buf2pat(buf, "~", true, true)
+}
+
+fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
+    // Galaxies are never zero-padded
+    let zero_pad = buf.len() != 1 && zero_pad;
+
+    // Zero pad the buffer so it is always even length
     let mut v: Vec<u8>;
-    let bytes: &[u8] = if buf.len() % 2 != 0 && buf.len() > 1 {
+    let bytes: &[u8] = if buf.len() % 2 != 0 {
         v = Vec::with_capacity(buf.len() + 1);
         v.push(0);
         v.extend_from_slice(buf);
@@ -141,20 +151,30 @@ fn buf2patq(buf: &[u8]) -> String {
         buf
     };
 
-    let mut name = "~".to_string();
+    let mut timp: usize = bytes.len() / 2;
+    let mut name = String::new();
     for chunk in bytes.chunks(2) {
         match chunk {
             &[pre, suf] => {
-                if name.len() > 1 {
-                    name.push_str("-");
+                if name.is_empty() {
+                    if zero_pad || pre != 0 {
+                        name.push_str(PREFIXES[pre as usize]);
+                    }
+                } else {
+                    if quad_sep && timp % 4 == 0 {
+                        name.push_str("--");
+                    } else {
+                        name.push_str("-");
+                    }
+                    name.push_str(PREFIXES[pre as usize]);
                 }
-                name.push_str(PREFIXES[pre as usize]);
                 name.push_str(SUFFIXES[suf as usize]);
             }
-            _ => panic!("buf2patq bug!"),
+            _ => panic!("buf2pat bug!"),
         }
+        timp = timp - 1;
     }
-    name
+    format!("{}{}", leader, name)
 }
 
 /**
@@ -270,46 +290,8 @@ pub fn patp2dec(name: &str) -> Result<String, Error> {
  * @return  {String}
  */
 pub fn patp(n: &BigUint) -> String {
-    let sxz = fein(n);
-    let dyy = met(&FOUR, &sxz, None);
-
-    let mut tsxz = sxz.clone();
-    let mut timp: usize = 0;
-    let mut trep = String::new();
-
-    let dyx = met(&THREE, &sxz, None);
-
-    let body = if dyx.eq(&ONE) {
-        SUFFIXES[sxz.to_usize().unwrap()].to_string()
-    } else {
-        loop {
-            let log = end(&FOUR, &ONE, &tsxz);
-            let pre = &PREFIXES[rsh(&THREE, &ONE, &log).to_usize().unwrap()];
-            let suf = &SUFFIXES[end(&THREE, &ONE, &log).to_usize().unwrap()];
-
-            let etc = if timp % 4 == 0 {
-                if timp == 0 {
-                    ""
-                } else {
-                    "--"
-                }
-            } else {
-                "-"
-            };
-
-            let res = format!("{}{}{}{}", pre, suf, etc, trep);
-
-            timp = timp + 1;
-            if BigUint::from(timp).eq(&dyy) {
-                break res;
-            }
-
-            tsxz = rsh(&FOUR, &ONE, &tsxz);
-            trep = res;
-        }
-    };
-
-    format!("~{body}")
+    let buf = fein(n).to_bytes_be();
+    buf2patp(&buf)
 }
 
 /**
@@ -362,7 +344,7 @@ pub fn pat2syls<'a, 'b>(
     force_zero_pad: bool,
 ) -> Result<Vec<&'a str>, Error> {
     if let Some(rest) = pat.strip_prefix(leader) {
-        let words: Vec<&str> = rest.split('-').collect();
+        let words: Vec<&str> = rest.split('-').filter(|s| !s.is_empty()).collect();
         if words.len() == 1 && words[0].len() == 3 {
             if SUFFIX_VALUES.contains_key(words[0]) {
                 Ok(words)
