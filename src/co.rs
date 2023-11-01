@@ -269,47 +269,12 @@ pub fn patp2dec(name: &str) -> Result<String, Error> {
  * @param  {String, Number, BN}  arg
  * @return  {String}
  */
-// const patp = (arg) => {
-//   if (arg === null) {
-//     throw new Error('patp: null input')
-//   }
-//   const n = new BN(arg)
-
-//   const sxz = ob.fein(n)
-//   const dyy = met(four, sxz)
-
-//   const loop = (tsxz, timp, trep) => {
-//     const log = end(four, one, tsxz)
-//     const pre = prefixes[rsh(three, one, log)]
-//     const suf = suffixes[end(three, one, log)]
-//     const etc =
-//       (timp.mod(four)).eq(zero)
-//         ? timp.eq(zero)
-//           ? ''
-//           : '--'
-//         : '-'
-
-//     const res = pre + suf + etc + trep
-
-//     return timp.eq(dyy)
-//       ? trep
-//       : loop(rsh(four, one, tsxz), timp.add(one), res)
-//   }
-
-//   const dyx = met(three, sxz)
-
-//   return '~' +
-//     (dyx.lte(one)
-//     ? suffixes[sxz]
-//     : loop(sxz, zero, ''))
-// }
-
 pub fn patp(n: &BigUint) -> String {
     let sxz = fein(n);
     let dyy = met(&FOUR, &sxz, None);
 
     let mut tsxz = sxz.clone();
-    let mut timp = ZERO.clone();
+    let mut timp: usize = 0;
     let mut trep = String::new();
 
     let dyx = met(&THREE, &sxz, None);
@@ -322,24 +287,24 @@ pub fn patp(n: &BigUint) -> String {
             let pre = &PREFIXES[rsh(&THREE, &ONE, &log).to_usize().unwrap()];
             let suf = &SUFFIXES[end(&THREE, &ONE, &log).to_usize().unwrap()];
 
-            let etc = if timp.modpow(&ONE, &FOUR) == *ZERO {
-                if timp == *ZERO {
-                    String::new()
+            let etc = if timp % 4 == 0 {
+                if timp == 0 {
+                    ""
                 } else {
-                    "--".to_string()
+                    "--"
                 }
             } else {
-                "-".to_string()
+                "-"
             };
 
             let res = format!("{}{}{}{}", pre, suf, etc, trep);
 
-            if timp.eq(&dyy) {
+            timp = timp + 1;
+            if BigUint::from(timp).eq(&dyy) {
                 break res;
             }
 
             tsxz = rsh(&FOUR, &ONE, &tsxz);
-            timp = timp.add(ONE.clone());
             trep = res;
         }
     };

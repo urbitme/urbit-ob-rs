@@ -14,5 +14,6 @@ fn main() {
     println!("{:?}", hex2patp("60b3"));
     println!("{:?}", hex2patp("06b3"));
     println!("{:?}", hex2patp("b360b3e20200e20200"));
+    println!("{:?}", hex2patq("b360b3e20200e20200"));
     // println!("{:?}", muk(0xee281300, 2, &BigUint::from(0xcafebabe_u64)));
 }
