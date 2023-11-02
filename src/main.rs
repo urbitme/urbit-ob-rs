@@ -25,6 +25,7 @@ fn main() {
     println!("{:?}", sein("~dev"));
     println!("{:?}", sein("~rondev"));
     println!("{:?}", sein("~nodreb-borrus"));
-    println!("{:?}", sein("~binzod--rondev-master-martyr-finned"));
+    println!("{:?}", sein("~rondev-master-martyr-finned"));
+    println!("{:?}", PREFIX_VALUES.get("nod"));
     // println!("{:?}", muk(0xee281300, 2, &BigUint::from(0xcafebabe_u64)));
 }

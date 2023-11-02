@@ -1,8 +1,8 @@
 use hex;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use num_bigint::BigUint;
-use num_traits::Pow;
-use std::{cmp::PartialEq, collections::HashMap, ops::Add};
+use num_traits::{Pow, Zero};
+use std::{cmp::PartialEq, collections::HashMap, ops::Rem};
 
 use super::ob::{fein, fynd};
 
@@ -69,51 +69,39 @@ pub const SUFFIXES: [&'static str; 256] = [
     "fyr", "mur", "tel", "rep", "teg", "pec", "nel", "nev", "fes",
 ];
 
-lazy_static! {
-    /// Map from prefix name to integer value.  Use to validate a prefix or lookup the numeric value.
-    pub static ref PREFIX_VALUES: HashMap<&'static str, u8> = (|| {
-        let mut h = HashMap::with_capacity(256);
-        for (index, value) in PREFIXES.iter().enumerate() {
-            h.insert(*value, index as u8);
+/// Map from prefix name to integer value.  Use to validate a prefix or lookup the numeric value.
+pub static PREFIX_VALUES: Lazy<HashMap<&'static str, u8>> = Lazy::new(|| {
+    let mut h = HashMap::with_capacity(256);
+    for (index, value) in PREFIXES.iter().enumerate() {
+        h.insert(*value, index as u8);
+    }
+    h
+});
+
+/// Map from suffix name to integer value.  Use to validate a suffix or lookup the numeric value.
+pub static SUFFIX_VALUES: Lazy<HashMap<&'static str, u8>> = Lazy::new(|| {
+    let mut h = HashMap::with_capacity(256);
+    for (index, value) in SUFFIXES.iter().enumerate() {
+        h.insert(*value, index as u8);
+    }
+    h
+});
+
+fn met(a: usize, b: &BigUint) -> usize {
+    let zero = BigUint::zero();
+    let mut b = b.clone();
+    let mut c = 0;
+    loop {
+        if b.eq(&zero) {
+            return c
         }
-        h
-    })();
-    /// Map from suffix name to integer value.  Use to validate a suffix or lookup the numeric value.
-    pub static ref SUFFIX_VALUES: HashMap<&'static str, u8> = (|| {
-        let mut h = HashMap::with_capacity(256);
-        for (index, value) in SUFFIXES.iter().enumerate() {
-            h.insert(*value, index as u8);
-        }
-        h
-    })();
-    static ref ZERO: BigUint = BigUint::from(0u32);
-    static ref ONE: BigUint = BigUint::from(1u32);
-    static ref TWO: BigUint = BigUint::from(2u32);
-    static ref THREE: BigUint = BigUint::from(3u32);
-    static ref FOUR: BigUint = BigUint::from(4u32);
-    static ref FIVE: BigUint = BigUint::from(5u32);
-    static ref EIGHT: BigUint = BigUint::from(8u32);
-}
-
-fn bex(n: &BigUint) -> BigUint {
-    BigUint::from(2_u8).pow(n)
-}
-
-fn rsh(a: &BigUint, b: &BigUint, c: &BigUint) -> BigUint {
-    c.clone() / bex(&(bex(a) * b))
-}
-
-fn met(a: &BigUint, b: &BigUint, c: Option<&BigUint>) -> BigUint {
-    let c = c.unwrap_or(&ZERO);
-    if b.eq(&ZERO) {
-        c.clone()
-    } else {
-        met(a, &rsh(a, &ONE, b), Some(&c.add(1u8)))
+        b = b >> 2.pow(a);
+        c = c + 1;
     }
 }
 
-fn end(a: &BigUint, b: &BigUint, c: &BigUint) -> BigUint {
-    c % bex(&(bex(a) * b))
+fn end(a: usize, c: &BigUint) -> BigUint {
+    c.rem(2u64.pow(2.pow(a) as u32) as u64)
 }
 
 /// Convert a number (BigUint) to a @q-encoded string.
@@ -123,17 +111,17 @@ pub fn patq(n: &BigUint) -> String {
 }
 
 /// Convert a Buffer into a @q-encoded string.
-fn buf2patq(buf: &[u8]) -> String {
+pub fn buf2patq(buf: &[u8]) -> String {
     buf2pat(buf, ".~", false, false)
 }
 
 /// Convert a Buffer into a @p-encoded string.
-fn buf2patp(buf: &[u8]) -> String {
+pub fn buf2patp(buf: &[u8]) -> String {
     buf2pat(buf, "~", true, true)
 }
 
 /// Generalized formatter for @p and @q encoded strings.
-fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
+pub fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
     // Galaxies are never zero-padded
     let zero_pad = buf.len() != 1 && zero_pad;
 
@@ -198,7 +186,7 @@ pub fn patq2hex(name: &str) -> Result<String, Error> {
 }
 
 /// Convert a @q-encoded string to a BigUint
-fn patq2bn(name: &str) -> Result<BigUint, Error> {
+pub fn patq2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patq2syls(name)?;
     let buf = syls2buffer(&syls);
 
@@ -217,7 +205,7 @@ pub fn hex2patp(hex: &str) -> String {
 }
 
 /// Convert a @p-encoded string to a BigUint
-fn patp2bn(name: &str) -> Result<BigUint, Error> {
+pub fn patp2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patp2syls(name)?;
     let buf = syls2buffer(&syls);
 
@@ -243,15 +231,15 @@ pub fn patp(n: &BigUint) -> String {
 /// Determine the ship class of a @p value.
 pub fn clan(who: &str) -> &'static str {
     let n = patp2bn(who).unwrap();
-    let wid = met(&THREE, &n, None);
+    let wid = met(3, &n);
 
-    if wid.le(&ONE) {
+    if wid <= 1 {
         "galaxy"
-    } else if wid.eq(&TWO) {
+    } else if wid == 2 {
         "star"
-    } else if wid.le(&FOUR) {
+    } else if wid <= 4 {
         "planet"
-    } else if wid.le(&EIGHT) {
+    } else if wid <= 8 {
         "moon"
     } else {
         "comet"
@@ -265,10 +253,10 @@ pub fn sein(name: &str) -> Result<String, Error> {
 
     let res = match mir {
         "galaxy" => who,
-        "star" => end(&THREE, &ONE, &who),
-        "planet" => end(&FOUR, &ONE, &who),
-        "moon" => end(&FIVE, &ONE, &who),
-        _ => ZERO.clone(),
+        "star" => end(3, &who),
+        "planet" => end(4, &who),
+        "moon" => end(5, &who),
+        _ => BigUint::zero(),
     };
 
     Ok(patp(&res))
