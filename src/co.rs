@@ -193,7 +193,7 @@ pub fn patq2hex(name: &str) -> Result<String, Error> {
 /// Convert a @q-encoded string to a BigUint
 pub fn patq2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patq2syls(name)?;
-    let buf = syls2buffer(&syls);
+    let buf = syls2buffer(&syls)?;
 
     Ok(BigUint::from_bytes_be(&buf))
 }
@@ -220,7 +220,7 @@ pub fn dec2patp(dec: &str) -> Result<String, Error> {
 /// Convert a @p-encoded string to a BigUint
 pub fn patp2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patp2syls(name)?;
-    let buf = syls2buffer(&syls);
+    let buf = syls2buffer(&syls)?;
 
     Ok(fynd(&BigUint::from_bytes_be(&buf)))
 }
@@ -242,11 +242,11 @@ pub fn patp(n: &BigUint) -> String {
 }
 
 /// Determine the ship class of a @p value.
-pub fn clan(who: &str) -> &'static str {
-    let n = patp2bn(who).unwrap();
+pub fn clan(who: &str) -> Result<&'static str, Error> {
+    let n = patp2bn(who)?;
     let wid = met(3, &n);
 
-    if wid <= 1 {
+    Ok(if wid <= 1 {
         "galaxy"
     } else if wid == 2 {
         "star"
@@ -256,13 +256,13 @@ pub fn clan(who: &str) -> &'static str {
         "moon"
     } else {
         "comet"
-    }
+    })
 }
 
 /// Determine the parent of a @p value.
 pub fn sein(name: &str) -> Result<String, Error> {
     let who = patp2bn(name)?;
-    let mir = clan(name);
+    let mir = clan(name)?;
 
     let res = match mir {
         "galaxy" => who,
@@ -338,34 +338,40 @@ pub fn patq2syls(pat: &str) -> Result<Vec<&str>, Error> {
 }
 
 /// Convert syllables into a buffer of their integer values.
-pub fn syls2buffer(syls: &[&str]) -> Vec<u8> {
+pub fn syls2buffer(syls: &[&str]) -> Result<Vec<u8>, Error> {
     // Start with suffix when odd number of syllables
     let mut suffix: bool = syls.len() % 2 == 1;
     let mut buf = Vec::with_capacity(syls.len());
     for syl in syls.iter() {
         if suffix {
-            buf.push(SUFFIX_VALUES.get(syl).unwrap().clone());
+            let suf = SUFFIX_VALUES
+                .get(syl)
+                .ok_or(Error::InvalidSuffix(syl.to_string()))?;
+            buf.push(suf.clone());
         } else {
-            buf.push(PREFIX_VALUES.get(syl).unwrap().clone());
+            let pre = PREFIX_VALUES
+                .get(syl)
+                .ok_or(Error::InvalidPrefix(syl.to_string()))?;
+            buf.push(pre.clone());
         }
         suffix = !suffix;
     }
-    buf
+    Ok(buf)
 }
 
 /// Flexible and customizable validation for pat type values.
-pub fn is_valid_pat(name: &str) -> bool {
-    pat2syls(name, "", false).is_ok()
+pub fn is_valid_pat(name: &str, leader: &str, force_zero_pad: bool) -> bool {
+    pat2syls(name, leader, force_zero_pad).is_ok()
 }
 
 /// Validate a @p-encoded string.
 pub fn is_valid_patp(name: &str) -> bool {
-    pat2syls(name, "~", true).is_ok()
+    patp2syls(name).is_ok()
 }
 
 /// Validate a @q-encoded string.
 pub fn is_valid_patq(name: &str) -> bool {
-    pat2syls(name, ".~", false).is_ok()
+    patq2syls(name).is_ok()
 }
 
 /// Equality test for a @p and @q.
