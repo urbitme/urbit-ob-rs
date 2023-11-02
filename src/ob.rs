@@ -47,7 +47,7 @@ lazy_static! {
 }
 
 #[allow(non_snake_case)]
-pub fn F(j: usize, arg: &BigUint) -> Option<BigUint> {
+fn F(j: usize, arg: &BigUint) -> Option<BigUint> {
     let raku: [u32; 4] = [0xb76d5eed, 0xee281300, 0x85bcae01, 0x4b387af7];
     muk(*raku.get(j)?, 2, arg)
 }
@@ -80,12 +80,12 @@ pub fn fynd(arg: &BigUint) -> BigUint {
     }
 }
 
-pub fn feis(arg: &BigUint) -> BigUint {
+fn feis(arg: &BigUint) -> BigUint {
     Fe(4, &U_65535, &U_65536, &UX_FFFF_FFFF, F, arg)
 }
 
 #[allow(non_snake_case)]
-pub fn Fe(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn Fe(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
     let c = fe(r, a, b, f, m);
     if c < *k {
         c
@@ -95,7 +95,7 @@ pub fn Fe(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint
 }
 
 #[allow(non_snake_case)]
-pub fn fe(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn fe(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
     fn fe_loop(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint, j: usize, ell: BigUint, arr: BigUint) -> BigUint {
         if j > r {
             return if r % 2 != 0 {
@@ -122,12 +122,12 @@ pub fn fe(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint 
     fe_loop(r, a, b, f, m, 1, L, R)
 }
 
-pub fn tail(arg: &BigUint) -> BigUint {
+fn tail(arg: &BigUint) -> BigUint {
     Fen(4, &U_65535, &U_65536, &UX_FFFF_FFFF, F, arg)
 }
 
 #[allow(non_snake_case)]
-pub fn Fen(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn Fen(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
     let c = fen(r, a, b, f, m);
     if c < *k {
         c
@@ -137,7 +137,7 @@ pub fn Fen(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUin
 }
 
 #[allow(non_snake_case)]
-pub fn fen(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn fen(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
     fn fe_loop(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint, j: usize, ell: &BigUint, arr: &BigUint) -> BigUint {
         if j < 1 {
             a * arr + ell

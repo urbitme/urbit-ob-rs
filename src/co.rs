@@ -6,6 +6,7 @@ use std::{cmp::PartialEq, collections::HashMap, ops::Add};
 
 use super::ob::{fein, fynd};
 
+/// Parsing and Formatting errors
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
     #[error("Value must begin with leader: {0}")]
@@ -20,7 +21,8 @@ pub enum Error {
     ZeroPadRequired,
 }
 
-const PREFIXES: [&'static str; 256] = [
+/// Ordered list of all prefixes.  Use to lookup a prefix by numerical value.
+pub const PREFIXES: [&'static str; 256] = [
     "doz", "mar", "bin", "wan", "sam", "lit", "sig", "hid", "fid", "lis", "sog", "dir", "wac",
     "sab", "wis", "sib", "rig", "sol", "dop", "mod", "fog", "lid", "hop", "dar", "dor", "lor",
     "hod", "fol", "rin", "tog", "sil", "mir", "hol", "pas", "lac", "rov", "liv", "dal", "sat",
@@ -43,7 +45,8 @@ const PREFIXES: [&'static str; 256] = [
     "fod", "pon", "sov", "noc", "sor", "lav", "mat", "mip", "fip",
 ];
 
-const SUFFIXES: [&'static str; 256] = [
+/// Ordered list of all suffixes.  Use to lookup a suffix by numerical value.
+pub const SUFFIXES: [&'static str; 256] = [
     "zod", "nec", "bud", "wes", "sev", "per", "sut", "let", "ful", "pen", "syt", "dur", "wep",
     "ser", "wyl", "sun", "ryp", "syx", "dyr", "nup", "heb", "peg", "lup", "dep", "dys", "put",
     "lug", "hec", "ryt", "tyv", "syd", "nex", "lun", "mep", "lut", "sep", "pes", "del", "sul",
@@ -67,14 +70,16 @@ const SUFFIXES: [&'static str; 256] = [
 ];
 
 lazy_static! {
-    static ref PREFIX_VALUES: HashMap<&'static str, u8> = (|| {
+    /// Map from prefix name to integer value.  Use to validate a prefix or lookup the numeric value.
+    pub static ref PREFIX_VALUES: HashMap<&'static str, u8> = (|| {
         let mut h = HashMap::with_capacity(256);
         for (index, value) in PREFIXES.iter().enumerate() {
             h.insert(*value, index as u8);
         }
         h
     })();
-    static ref SUFFIX_VALUES: HashMap<&'static str, u8> = (|| {
+    /// Map from suffix name to integer value.  Use to validate a suffix or lookup the numeric value.
+    pub static ref SUFFIX_VALUES: HashMap<&'static str, u8> = (|| {
         let mut h = HashMap::with_capacity(256);
         for (index, value) in SUFFIXES.iter().enumerate() {
             h.insert(*value, index as u8);
@@ -111,31 +116,23 @@ fn end(a: &BigUint, b: &BigUint, c: &BigUint) -> BigUint {
     c % bex(&(bex(a) * b))
 }
 
-/**
- * Convert a number to a @q-encoded string.
- *
- * @param  {String, Number, BN}  arg
- * @return  {String}
- */
+/// Convert a number (BigUint) to a @q-encoded string.
 pub fn patq(n: &BigUint) -> String {
     let buf = n.to_bytes_be();
     buf2patq(&buf)
 }
 
-/**
- * Convert a Buffer into a @q-encoded string.
- *
- * @param  {Buffer}  buf
- * @return  {String}
- */
+/// Convert a Buffer into a @q-encoded string.
 fn buf2patq(buf: &[u8]) -> String {
     buf2pat(buf, ".~", false, false)
 }
 
+/// Convert a Buffer into a @p-encoded string.
 fn buf2patp(buf: &[u8]) -> String {
     buf2pat(buf, "~", true, true)
 }
 
+/// Generalized formatter for @p and @q encoded strings.
 fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
     // Galaxies are never zero-padded
     let zero_pad = buf.len() != 1 && zero_pad;
@@ -177,14 +174,7 @@ fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
     format!("{}{}", leader, name)
 }
 
-/**
- * Convert a hex-encoded string to a @q-encoded string.
- *
- * Note that this preserves leading zero bytes.
- *
- * @param  {String}  hex
- * @return  {String}
- */
+/// Convert a hex-encoded string to a @q-encoded string.
 pub fn hex2patq(hex: &str) -> String {
     let hex = if hex.len() % 2 != 0 {
         format!("0{hex}")
@@ -196,14 +186,7 @@ pub fn hex2patq(hex: &str) -> String {
     buf2patq(&buf)
 }
 
-/**
- * Convert a @q-encoded string to a hex-encoded string.
- *
- * Note that this preserves leading zero bytes.
- *
- * @param  {String}  name @q
- * @return  {String}
- */
+/// Convert a @q-encoded string to a hex-encoded string.
 pub fn patq2hex(name: &str) -> Result<String, Error> {
     patq2bn(name).map(|bn| bn.to_str_radix(16)).map(|hex| {
         if hex.len() % 2 != 0 {
@@ -214,12 +197,7 @@ pub fn patq2hex(name: &str) -> Result<String, Error> {
     })
 }
 
-/**
- * Convert a @q-encoded string to a bignum.
- *
- * @param  {String}  name @q
- * @return  {BN}
- */
+/// Convert a @q-encoded string to a BigUint
 fn patq2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patq2syls(name)?;
     let buf = syls2buffer(&syls);
@@ -227,33 +205,18 @@ fn patq2bn(name: &str) -> Result<BigUint, Error> {
     Ok(BigUint::from_bytes_be(&buf))
 }
 
-/**
- * Convert a @q-encoded string to a decimal-encoded string.
- *
- * @param  {String}  name @q
- * @return  {String}
- */
+/// Convert a @q-encoded string to a decimal-encoded string.
 pub fn patq2dec(name: &str) -> Result<String, Error> {
     patq2bn(name).map(|bn| bn.to_str_radix(10))
 }
 
-/**
- * Convert a hex-encoded string to a @p-encoded string.
- *
- * @param  {String}  hex
- * @return  {String}
- */
+/// Convert a hex-encoded string to a @p-encoded string.
 pub fn hex2patp(hex: &str) -> String {
     let bn = BigUint::parse_bytes(hex.as_bytes(), 16).unwrap();
     patp(&bn)
 }
 
-/**
- * Convert a @p-encoded string to a bignum.
- *
- * @param  {String}  name @p
- * @return  {BN}
- */
+/// Convert a @p-encoded string to a BigUint
 fn patp2bn(name: &str) -> Result<BigUint, Error> {
     let syls = patp2syls(name)?;
     let buf = syls2buffer(&syls);
@@ -261,45 +224,23 @@ fn patp2bn(name: &str) -> Result<BigUint, Error> {
     Ok(fynd(&BigUint::from_bytes_be(&buf)))
 }
 
-/**
- * Convert a @p-encoded string to a hex-encoded string.
- *
- * @param  {String}  name @p
- * @return  {String}
- */
-//confirm even number length
+/// Convert a @p-encoded string to a hex-encoded string.
 pub fn patp2hex(name: &str) -> Result<String, Error> {
-    //Some(format!("{:#04x}", ob::fynd(bn)))
     patp2bn(name).map(|bn| bn.to_str_radix(16))
 }
 
-/**
- * Convert a @p-encoded string to a decimal-encoded string.
- *
- * @param  {String}  name @p
- * @return  {String}
- */
+/// Convert a @p-encoded string to a decimal-encoded string.
 pub fn patp2dec(name: &str) -> Result<String, Error> {
     patp2bn(name).map(|bn| bn.to_str_radix(10))
 }
 
-/**
- * Convert a number to a @p-encoded string.
- *
- * @param  {String, Number, BN}  arg
- * @return  {String}
- */
+/// Convert a number (BigUint) to a @p-encoded string.
 pub fn patp(n: &BigUint) -> String {
     let buf = fein(n).to_bytes_be();
     buf2patp(&buf)
 }
 
-/**
- * Determine the ship class of a @p value.
- *
- * @param  {String}  @p
- * @return  {String}
- */
+/// Determine the ship class of a @p value.
 pub fn clan(who: &str) -> &'static str {
     let n = patp2bn(who).unwrap();
     let wid = met(&THREE, &n, None);
@@ -317,12 +258,7 @@ pub fn clan(who: &str) -> &'static str {
     }
 }
 
-/**
- * Determine the parent of a @p value.
- *
- * @param  {String}  @p
- * @return  {String}
- */
+/// Determine the parent of a @p value.
 pub fn sein(name: &str) -> Result<String, Error> {
     let who = patp2bn(name)?;
     let mir = clan(name);
@@ -338,6 +274,7 @@ pub fn sein(name: &str) -> Result<String, Error> {
     Ok(patp(&res))
 }
 
+/// Generalized parsing for @p and @q values.
 pub fn pat2syls<'a, 'b>(
     pat: &'a str,
     leader: &'b str,
@@ -389,14 +326,17 @@ pub fn pat2syls<'a, 'b>(
     }
 }
 
+/// Parse a @p-encoded value into a vector of individual syllables
 pub fn patp2syls(pat: &str) -> Result<Vec<&str>, Error> {
     pat2syls(pat, "~", true)
 }
 
+/// Parse a @q-encoded value into a vector of individual syllables
 pub fn patq2syls(pat: &str) -> Result<Vec<&str>, Error> {
     pat2syls(pat, ".~", false)
 }
 
+/// Convert syllables into a buffer of their integer values.
 pub fn syls2buffer(syls: &[&str]) -> Vec<u8> {
     // Start with suffix when odd number of syllables
     let mut suffix: bool = syls.len() % 2 == 1;
@@ -412,42 +352,22 @@ pub fn syls2buffer(syls: &[&str]) -> Vec<u8> {
     buf
 }
 
-/**
- * Check if a string is a valid @p or @q value.
- *
- * @param  {String}  name a @p or @q value
- * @return  {boolean}
- */
+/// Flexible and customizable validation for pat type values.
 pub fn is_valid_pat(name: &str) -> bool {
     pat2syls(name, "", false).is_ok()
 }
 
-/**
- * Validate a @p string.
- *
- * @param  {String}  str a string
- * @return  {boolean}
- */
+/// Validate a @p-encoded string.
 pub fn is_valid_patp(name: &str) -> bool {
     pat2syls(name, "~", true).is_ok()
 }
 
-/**
- * Validate a @q string.
- *
- * @param  {String}  str a string
- * @return  {boolean}
- */
+/// Validate a @q-encoded string.
 pub fn is_valid_patq(name: &str) -> bool {
     pat2syls(name, ".~", false).is_ok()
 }
 
-/**
- * Equality comparison on @q values.
- * @param  {String}  p a @q-encoded string
- * @param  {String}  q a @q-encoded string
- * @return  {Bool}
- */
+/// Equality test for a @p and @q.
 pub fn eq_patq(p: &str, q: &str) -> Result<bool, Error> {
     let p_val = patp2bn(p)?;
     let q_val = patq2bn(q)?;
