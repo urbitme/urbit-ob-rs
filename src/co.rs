@@ -1,7 +1,6 @@
-use hex;
-use once_cell::sync::Lazy;
 use num_bigint::BigUint;
-use num_traits::{Pow, Zero};
+use num_traits::{Num, Pow, Zero};
+use once_cell::sync::Lazy;
 use std::{cmp::PartialEq, collections::HashMap, ops::Rem};
 
 use super::ob::{fein, fynd};
@@ -19,6 +18,10 @@ pub enum Error {
     InvalidSection(String),
     #[error("Full six-letter words required")]
     ZeroPadRequired,
+    #[error("Invalid hex string: {0}")]
+    InvalidHex(String),
+    #[error("Invalid decimal string: {0}")]
+    InvalidDecimal(String),
 }
 
 /// Ordered list of all prefixes.  Use to lookup a prefix by numerical value.
@@ -93,7 +96,7 @@ fn met(a: usize, b: &BigUint) -> usize {
     let mut c = 0;
     loop {
         if b.eq(&zero) {
-            return c
+            return c;
         }
         b = b >> 2.pow(a);
         c = c + 1;
@@ -163,15 +166,17 @@ pub fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> Stri
 }
 
 /// Convert a hex-encoded string to a @q-encoded string.
-pub fn hex2patq(hex: &str) -> String {
-    let hex = if hex.len() % 2 != 0 {
-        format!("0{hex}")
-    } else {
-        hex.to_string()
-    };
+pub fn hex2patq(hex: &str) -> Result<String, Error> {
+    BigUint::from_str_radix(hex, 16)
+        .map(|n| patq(&n))
+        .map_err(|_| Error::InvalidHex(hex.to_string()))
+}
 
-    let buf = hex::decode(hex).unwrap();
-    buf2patq(&buf)
+/// Convert a decimal encoded string to a @q-encoded string.
+pub fn dec2patq(dec: &str) -> Result<String, Error> {
+    BigUint::from_str_radix(dec, 10)
+        .map(|n| patq(&n))
+        .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
 /// Convert a @q-encoded string to a hex-encoded string.
@@ -199,9 +204,17 @@ pub fn patq2dec(name: &str) -> Result<String, Error> {
 }
 
 /// Convert a hex-encoded string to a @p-encoded string.
-pub fn hex2patp(hex: &str) -> String {
-    let bn = BigUint::parse_bytes(hex.as_bytes(), 16).unwrap();
-    patp(&bn)
+pub fn hex2patp(hex: &str) -> Result<String, Error> {
+    BigUint::from_str_radix(hex, 16)
+        .map(|n| patp(&n))
+        .map_err(|_| Error::InvalidHex(hex.to_string()))
+}
+
+/// Convert a decimal encoded string to a @q-encoded string.
+pub fn dec2patp(dec: &str) -> Result<String, Error> {
+    BigUint::from_str_radix(dec, 10)
+        .map(|n| patp(&n))
+        .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
 /// Convert a @p-encoded string to a BigUint
