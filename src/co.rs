@@ -1,5 +1,5 @@
-use num_bigint::BigUint;
-use num_traits::{Num, Pow, Zero};
+use ibig::UBig;
+use num_traits::{Pow, Zero};
 use once_cell::sync::Lazy;
 use std::{cmp::PartialEq, collections::HashMap, ops::Rem};
 
@@ -90,26 +90,26 @@ pub static SUFFIX_VALUES: Lazy<HashMap<&'static str, u8>> = Lazy::new(|| {
     h
 });
 
-fn met(a: usize, b: &BigUint) -> usize {
-    let zero = BigUint::zero();
+fn met(a: usize, b: &UBig) -> usize {
+    let zero = UBig::zero();
     let mut b = b.clone();
     let mut c = 0;
     loop {
         if b.eq(&zero) {
             return c;
         }
-        b = b >> 2.pow(a);
+        b = b >> 2.pow(a) as usize;
         c = c + 1;
     }
 }
 
-fn end(a: usize, c: &BigUint) -> BigUint {
-    c.rem(2u64.pow(2.pow(a) as u32) as u64)
+fn end(a: usize, c: &UBig) -> UBig {
+    c.rem(UBig::from(2u64.pow(2u32.pow(a as u32))))
 }
 
-/// Convert a number (BigUint) to a @q-encoded string.
-pub fn patq(n: &BigUint) -> String {
-    let buf = n.to_bytes_be();
+/// Convert a number (UBig) to a @q-encoded string.
+pub fn patq(n: &UBig) -> String {
+    let buf = n.to_be_bytes();
     buf2patq(&buf)
 }
 
@@ -167,21 +167,21 @@ pub fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> Stri
 
 /// Convert a hex-encoded string to a @q-encoded string.
 pub fn hex2patq(hex: &str) -> Result<String, Error> {
-    BigUint::from_str_radix(hex, 16)
+    UBig::from_str_radix(hex, 16)
         .map(|n| patq(&n))
         .map_err(|_| Error::InvalidHex(hex.to_string()))
 }
 
 /// Convert a decimal encoded string to a @q-encoded string.
 pub fn dec2patq(dec: &str) -> Result<String, Error> {
-    BigUint::from_str_radix(dec, 10)
+    UBig::from_str_radix(dec, 10)
         .map(|n| patq(&n))
         .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
 /// Convert a @q-encoded string to a hex-encoded string.
 pub fn patq2hex(name: &str) -> Result<String, Error> {
-    patq2bn(name).map(|bn| bn.to_str_radix(16)).map(|hex| {
+    patq2bn(name).map(|bn| bn.in_radix(16).to_string()).map(|hex| {
         if hex.len() % 2 != 0 {
             format!("0{hex}")
         } else {
@@ -190,54 +190,54 @@ pub fn patq2hex(name: &str) -> Result<String, Error> {
     })
 }
 
-/// Convert a @q-encoded string to a BigUint
-pub fn patq2bn(name: &str) -> Result<BigUint, Error> {
+/// Convert a @q-encoded string to a UBig
+pub fn patq2bn(name: &str) -> Result<UBig, Error> {
     let syls = patq2syls(name)?;
     let buf = syls2buffer(&syls)?;
 
-    Ok(BigUint::from_bytes_be(&buf))
+    Ok(UBig::from_be_bytes(&buf))
 }
 
 /// Convert a @q-encoded string to a decimal-encoded string.
 pub fn patq2dec(name: &str) -> Result<String, Error> {
-    patq2bn(name).map(|bn| bn.to_str_radix(10))
+    patq2bn(name).map(|bn| bn.in_radix(10).to_string())
 }
 
 /// Convert a hex-encoded string to a @p-encoded string.
 pub fn hex2patp(hex: &str) -> Result<String, Error> {
-    BigUint::from_str_radix(hex, 16)
+    UBig::from_str_radix(hex, 16)
         .map(|n| patp(&n))
         .map_err(|_| Error::InvalidHex(hex.to_string()))
 }
 
 /// Convert a decimal encoded string to a @q-encoded string.
 pub fn dec2patp(dec: &str) -> Result<String, Error> {
-    BigUint::from_str_radix(dec, 10)
+    UBig::from_str_radix(dec, 10)
         .map(|n| patp(&n))
         .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
-/// Convert a @p-encoded string to a BigUint
-pub fn patp2bn(name: &str) -> Result<BigUint, Error> {
+/// Convert a @p-encoded string to a UBig
+pub fn patp2bn(name: &str) -> Result<UBig, Error> {
     let syls = patp2syls(name)?;
     let buf = syls2buffer(&syls)?;
 
-    Ok(fynd(&BigUint::from_bytes_be(&buf)))
+    Ok(fynd(&UBig::from_be_bytes(&buf)))
 }
 
 /// Convert a @p-encoded string to a hex-encoded string.
 pub fn patp2hex(name: &str) -> Result<String, Error> {
-    patp2bn(name).map(|bn| bn.to_str_radix(16))
+    patp2bn(name).map(|bn| bn.in_radix(16).to_string())
 }
 
 /// Convert a @p-encoded string to a decimal-encoded string.
 pub fn patp2dec(name: &str) -> Result<String, Error> {
-    patp2bn(name).map(|bn| bn.to_str_radix(10))
+    patp2bn(name).map(|bn| bn.in_radix(10).to_string())
 }
 
-/// Convert a number (BigUint) to a @p-encoded string.
-pub fn patp(n: &BigUint) -> String {
-    let buf = fein(n).to_bytes_be();
+/// Convert a number (UBig) to a @p-encoded string.
+pub fn patp(n: &UBig) -> String {
+    let buf = fein(n).to_be_bytes();
     buf2patp(&buf)
 }
 
@@ -269,7 +269,7 @@ pub fn sein(name: &str) -> Result<String, Error> {
         "star" => end(3, &who),
         "planet" => end(4, &who),
         "moon" => end(5, &who),
-        _ => BigUint::zero(),
+        _ => UBig::zero(),
     };
 
     Ok(patp(&res))

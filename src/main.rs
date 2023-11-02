@@ -1,11 +1,11 @@
-use num_bigint::BigUint;
+use ibig::UBig;
 use urbit_ob::*;
 
 fn all_planets(star_val: u32) -> Vec<String> {
     let mut p_names: Vec<String> = Vec::with_capacity(0xffff);
     for value in 0x0001..=0xffff {
         let p_val: u32 = (value << 16) | star_val;
-        let p_name = patp(&BigUint::from(p_val));
+        let p_name = patp(&UBig::from(p_val));
         p_names.push(p_name);
     }
     p_names

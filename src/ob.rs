@@ -1,65 +1,63 @@
-use lazy_static::lazy_static;
 use murmur3::murmur3_32;
-use num_bigint::BigUint;
+use once_cell::sync::Lazy;
+use ibig::{UBig, ubig};
 use std::io::Cursor;
 use std::ops::{BitAnd, Div};
 
-fn muk(syd: u32, _len: u32, key: &BigUint) -> Option<BigUint> {
-    let lo = BigUint::from(0x00FF_u16)
+fn muk(syd: u32, _len: u32, key: &UBig) -> Option<UBig> {
+    let lo = ubig!(0x00FF)
         .bitand(key)
-        .to_bytes_le()
-        .get(0)
+        .to_le_bytes()
+        .get(0).or(Some(&0))
         .copied()?;
-    let hi = BigUint::from(0xFF00_u16)
+    let hi = ubig!(0xFF00)
         .bitand(key)
-        .div(BigUint::from(256_u16))
-        .to_bytes_le()
-        .get(0)
+        .div(ubig!(256))
+        .to_le_bytes()
+        .get(0).or(Some(&0))
         .copied()?;
     murmur3_32(&mut Cursor::new([lo, hi]), syd)
         .ok()
-        .map(BigUint::from)
+        .map(UBig::from)
 }
 
 #[test]
 fn test_muk() {
     assert_eq!(
-        muk(0, 2, &BigUint::from(0x101_u32)),
-        Some(BigUint::from(0x42081a9b_u32))
+        muk(0, 2, &ubig!(0x101)),
+        Some(ubig!(0x42081a9b))
     );
     assert_eq!(
-        muk(0, 2, &BigUint::from(0x201_u32)),
-        Some(BigUint::from(0x64c7667e_u32))
+        muk(0, 2, &ubig!(0x201)),
+        Some(ubig!(0x64c7667e))
     );
     assert_eq!(
-        muk(0, 2, &BigUint::from(0x4812_u32)),
-        Some(BigUint::from(0xa30782dc_u32))
+        muk(0, 2, &ubig!(0x4812)),
+        Some(ubig!(0xa30782dc))
     );
 }
 
-lazy_static! {
-    static ref UX_1_0000: BigUint = BigUint::from(0x10000_u32);
-    static ref UX_FFFF_FFFF: BigUint = BigUint::from(0xFFFFFFFF_u32);
-    static ref UX_1_0000_0000: BigUint = BigUint::from(0x1_00000000_u64);
-    static ref UX_FFFF_FFFF_FFFF_FFFF: BigUint = BigUint::from(0xFFFFFFFF_FFFFFFFF_u64);
-    static ref U_65535: BigUint = BigUint::from(65535_u16);
-    static ref U_65536: BigUint = BigUint::from(65536_u32);
-}
+static UX_FFFF_FFFF: Lazy<UBig> = Lazy::new(|| { ubig!(0xFFFFFFFF) });
+static UX_1_0000_0000: Lazy<UBig> = Lazy::new(|| { ubig!(0x1_00000000) });
+static UX_FFFF_FFFF_FFFF_FFFF: Lazy<UBig> = Lazy::new(|| { ubig!(0xFFFFFFFF_FFFFFFFF) });
+static U_65535: Lazy<UBig> = Lazy::new(|| { ubig!(65535) });
+static U_65536: Lazy<UBig> = Lazy::new(|| { ubig!(65536) });
 
 #[allow(non_snake_case)]
-fn F(j: usize, arg: &BigUint) -> Option<BigUint> {
+fn F(j: usize, arg: &UBig) -> Option<UBig> {
     let raku: [u32; 4] = [0xb76d5eed, 0xee281300, 0x85bcae01, 0x4b387af7];
     muk(*raku.get(j)?, 2, arg)
 }
 
-type FType = fn(usize, &BigUint) -> Option<BigUint>;
+type FType = fn(usize, &UBig) -> Option<UBig>;
 
-pub fn fein(arg: &BigUint) -> BigUint {
-    let lo = BigUint::from(0x00000000_FFFFFFFF_u64) & arg;
-    let hi = BigUint::from(0xFFFFFFFF_00000000_u64) & arg;
+pub fn fein(arg: &UBig) -> UBig {
+    let ux_1_0000 = ubig!(0x10000);
+    let lo = ubig!(0x00000000_FFFFFFFF) & arg;
+    let hi = ubig!(0xFFFFFFFF_00000000) & arg;
 
-    if arg >= &UX_1_0000 && arg <= &UX_FFFF_FFFF {
-        UX_1_0000.clone() + feis(&(arg.clone() - UX_1_0000.clone()))
+    if arg >= &ux_1_0000 && arg <= &UX_FFFF_FFFF {
+        ux_1_0000.clone() + feis(&(arg - &ux_1_0000))
     } else if arg >= &UX_1_0000_0000 && arg <= &UX_FFFF_FFFF_FFFF_FFFF {
         hi | fein(&lo)
     } else {
@@ -67,12 +65,13 @@ pub fn fein(arg: &BigUint) -> BigUint {
     }
 }
 
-pub fn fynd(arg: &BigUint) -> BigUint {
-    let lo = BigUint::from(0x00000000_FFFFFFFF_u64) & arg;
-    let hi = BigUint::from(0xFFFFFFFF_00000000_u64) & arg;
+pub fn fynd(arg: &UBig) -> UBig {
+    let ux_1_0000 = ubig!(0x10000);
+    let lo = ubig!(0x00000000_FFFFFFFF) & arg;
+    let hi = ubig!(0xFFFFFFFF_00000000) & arg;
 
-    if arg >= &UX_1_0000 && arg <= &UX_FFFF_FFFF {
-        UX_1_0000.clone() + tail(&(arg.clone() - UX_1_0000.clone()))
+    if arg >= &ux_1_0000 && arg <= &UX_FFFF_FFFF {
+        &ux_1_0000 + tail(&(arg.clone() - &ux_1_0000))
     } else if arg >= &UX_1_0000_0000 && arg <= &UX_FFFF_FFFF_FFFF_FFFF {
         hi | fynd(&lo)
     } else {
@@ -80,12 +79,12 @@ pub fn fynd(arg: &BigUint) -> BigUint {
     }
 }
 
-fn feis(arg: &BigUint) -> BigUint {
+fn feis(arg: &UBig) -> UBig {
     Fe(4, &U_65535, &U_65536, &UX_FFFF_FFFF, F, arg)
 }
 
 #[allow(non_snake_case)]
-fn Fe(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn Fe(r: usize, a: &UBig, b: &UBig, k: &UBig, f: FType, m: &UBig) -> UBig {
     let c = fe(r, a, b, f, m);
     if c < *k {
         c
@@ -95,8 +94,8 @@ fn Fe(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) ->
 }
 
 #[allow(non_snake_case)]
-fn fe(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
-    fn fe_loop(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint, j: usize, ell: BigUint, arr: BigUint) -> BigUint {
+fn fe(r: usize, a: &UBig, b: &UBig, f: FType, m: &UBig) -> UBig {
+    fn fe_loop(r: usize, a: &UBig, b: &UBig, f: FType, m: &UBig, j: usize, ell: UBig, arr: UBig) -> UBig {
         if j > r {
             return if r % 2 != 0 {
                 a * arr + ell
@@ -122,12 +121,12 @@ fn fe(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
     fe_loop(r, a, b, f, m, 1, L, R)
 }
 
-fn tail(arg: &BigUint) -> BigUint {
+fn tail(arg: &UBig) -> UBig {
     Fen(4, &U_65535, &U_65536, &UX_FFFF_FFFF, F, arg)
 }
 
 #[allow(non_snake_case)]
-fn Fen(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -> BigUint {
+fn Fen(r: usize, a: &UBig, b: &UBig, k: &UBig, f: FType, m: &UBig) -> UBig {
     let c = fen(r, a, b, f, m);
     if c < *k {
         c
@@ -137,8 +136,8 @@ fn Fen(r: usize, a: &BigUint, b: &BigUint, k: &BigUint, f: FType, m: &BigUint) -
 }
 
 #[allow(non_snake_case)]
-fn fen(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint) -> BigUint {
-    fn fe_loop(r: usize, a: &BigUint, b: &BigUint, f: FType, m: &BigUint, j: usize, ell: &BigUint, arr: &BigUint) -> BigUint {
+fn fen(r: usize, a: &UBig, b: &UBig, f: FType, m: &UBig) -> UBig {
+    fn fe_loop(r: usize, a: &UBig, b: &UBig, f: FType, m: &UBig, j: usize, ell: &UBig, arr: &UBig) -> UBig {
         if j < 1 {
             a * arr + ell
         } else {
