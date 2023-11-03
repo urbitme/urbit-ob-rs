@@ -107,8 +107,16 @@ fn end(a: usize, c: &UBig) -> UBig {
     c.rem(UBig::from(2u64.pow(2u32.pow(a as u32))))
 }
 
-/// Convert a number (UBig) to a @q-encoded string.
-pub fn patq(n: &UBig) -> String {
+/// Convert an unsigned integer into a @q-encoded string.
+pub fn patq<T>(n: T) -> String
+where
+    UBig: From<T>,
+{
+    big2patq(&UBig::from(n))
+}
+
+/// Convert a bignum (UBig) into a @q-encoded string.
+pub fn big2patq(n: &UBig) -> String {
     let buf = n.to_be_bytes();
     buf2patq(&buf)
 }
@@ -123,7 +131,7 @@ pub fn buf2patp(buf: &[u8]) -> String {
     buf2pat(buf, "~", true, true)
 }
 
-/// Generalized formatter for @p and @q encoded strings.
+/// General formatter for @p and @q encoded strings.
 pub fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> String {
     // Galaxies are never zero-padded
     let zero_pad = buf.len() != 1 && zero_pad;
@@ -168,30 +176,32 @@ pub fn buf2pat(buf: &[u8], leader: &str, zero_pad: bool, quad_sep: bool) -> Stri
 /// Convert a hex-encoded string to a @q-encoded string.
 pub fn hex2patq(hex: &str) -> Result<String, Error> {
     UBig::from_str_radix(hex, 16)
-        .map(|n| patq(&n))
+        .map(|n| big2patq(&n))
         .map_err(|_| Error::InvalidHex(hex.to_string()))
 }
 
 /// Convert a decimal encoded string to a @q-encoded string.
 pub fn dec2patq(dec: &str) -> Result<String, Error> {
     UBig::from_str_radix(dec, 10)
-        .map(|n| patq(&n))
+        .map(|n| big2patq(&n))
         .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
 /// Convert a @q-encoded string to a hex-encoded string.
 pub fn patq2hex(name: &str) -> Result<String, Error> {
-    patq2bn(name).map(|bn| bn.in_radix(16).to_string()).map(|hex| {
-        if hex.len() % 2 != 0 {
-            format!("0{hex}")
-        } else {
-            hex
-        }
-    })
+    patq2big(name)
+        .map(|n| n.in_radix(16).to_string())
+        .map(|hex| {
+            if hex.len() % 2 != 0 {
+                format!("0{hex}")
+            } else {
+                hex
+            }
+        })
 }
 
 /// Convert a @q-encoded string to a UBig
-pub fn patq2bn(name: &str) -> Result<UBig, Error> {
+pub fn patq2big(name: &str) -> Result<UBig, Error> {
     let syls = patq2syls(name)?;
     let buf = syls2buffer(&syls)?;
 
@@ -200,25 +210,25 @@ pub fn patq2bn(name: &str) -> Result<UBig, Error> {
 
 /// Convert a @q-encoded string to a decimal-encoded string.
 pub fn patq2dec(name: &str) -> Result<String, Error> {
-    patq2bn(name).map(|bn| bn.in_radix(10).to_string())
+    patq2big(name).map(|n| n.in_radix(10).to_string())
 }
 
 /// Convert a hex-encoded string to a @p-encoded string.
 pub fn hex2patp(hex: &str) -> Result<String, Error> {
     UBig::from_str_radix(hex, 16)
-        .map(|n| patp(&n))
+        .map(|n| big2patp(&n))
         .map_err(|_| Error::InvalidHex(hex.to_string()))
 }
 
 /// Convert a decimal encoded string to a @q-encoded string.
 pub fn dec2patp(dec: &str) -> Result<String, Error> {
     UBig::from_str_radix(dec, 10)
-        .map(|n| patp(&n))
+        .map(|n| big2patp(&n))
         .map_err(|_| Error::InvalidDecimal(dec.to_string()))
 }
 
 /// Convert a @p-encoded string to a UBig
-pub fn patp2bn(name: &str) -> Result<UBig, Error> {
+pub fn patp2big(name: &str) -> Result<UBig, Error> {
     let syls = patp2syls(name)?;
     let buf = syls2buffer(&syls)?;
 
@@ -227,23 +237,31 @@ pub fn patp2bn(name: &str) -> Result<UBig, Error> {
 
 /// Convert a @p-encoded string to a hex-encoded string.
 pub fn patp2hex(name: &str) -> Result<String, Error> {
-    patp2bn(name).map(|bn| bn.in_radix(16).to_string())
+    patp2big(name).map(|n| n.in_radix(16).to_string())
 }
 
 /// Convert a @p-encoded string to a decimal-encoded string.
 pub fn patp2dec(name: &str) -> Result<String, Error> {
-    patp2bn(name).map(|bn| bn.in_radix(10).to_string())
+    patp2big(name).map(|n| n.in_radix(10).to_string())
 }
 
-/// Convert a number (UBig) to a @p-encoded string.
-pub fn patp(n: &UBig) -> String {
+/// Convert an unsigned integer into a @p-encoded string.
+pub fn patp<T>(n: T) -> String
+where
+    UBig: From<T>,
+{
+    big2patp(&UBig::from(n))
+}
+
+/// Convert a bignum (UBig) to a @p-encoded string.
+pub fn big2patp(n: &UBig) -> String {
     let buf = fein(n).to_be_bytes();
     buf2patp(&buf)
 }
 
 /// Determine the ship class of a @p value.
 pub fn clan(who: &str) -> Result<&'static str, Error> {
-    let n = patp2bn(who)?;
+    let n = patp2big(who)?;
     let wid = met(3, &n);
 
     Ok(if wid <= 1 {
@@ -261,7 +279,7 @@ pub fn clan(who: &str) -> Result<&'static str, Error> {
 
 /// Determine the parent of a @p value.
 pub fn sein(name: &str) -> Result<String, Error> {
-    let who = patp2bn(name)?;
+    let who = patp2big(name)?;
     let mir = clan(name)?;
 
     let res = match mir {
@@ -272,10 +290,10 @@ pub fn sein(name: &str) -> Result<String, Error> {
         _ => UBig::zero(),
     };
 
-    Ok(patp(&res))
+    Ok(big2patp(&res))
 }
 
-/// Generalized parsing for @p and @q values.
+/// General parser for @p and @q values.
 pub fn pat2syls<'a, 'b>(
     pat: &'a str,
     leader: &'b str,
@@ -359,7 +377,7 @@ pub fn syls2buffer(syls: &[&str]) -> Result<Vec<u8>, Error> {
     Ok(buf)
 }
 
-/// Flexible and customizable validation for pat type values.
+/// General validation for pat type values.
 pub fn is_valid_pat(name: &str, leader: &str, force_zero_pad: bool) -> bool {
     pat2syls(name, leader, force_zero_pad).is_ok()
 }
@@ -376,7 +394,7 @@ pub fn is_valid_patq(name: &str) -> bool {
 
 /// Equality test for a @p and @q.
 pub fn eq_patq(p: &str, q: &str) -> Result<bool, Error> {
-    let p_val = patp2bn(p)?;
-    let q_val = patq2bn(q)?;
+    let p_val = patp2big(p)?;
+    let q_val = patq2big(q)?;
     Ok(p_val == q_val)
 }

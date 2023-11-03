@@ -1,11 +1,10 @@
-use ibig::UBig;
 use urbit_ob::*;
 
 fn all_planets(star_val: u32) -> Vec<String> {
     let mut p_names: Vec<String> = Vec::with_capacity(0xffff);
     for value in 0x0001..=0xffff {
         let p_val: u32 = (value << 16) | star_val;
-        let p_name = patp(&UBig::from(p_val));
+        let p_name = patp(p_val);
         p_names.push(p_name);
     }
     p_names
@@ -28,6 +27,7 @@ fn main() {
     println!("{:?}", patq2hex(".~rondev"));
     println!("{:?}", hex2patp("10000"));
     println!("{:?}", hex2patp("e20200"));
+    println!("{:?}", patp(0xe20200_u32));
     println!("{:?}", hex2patp("ffffffff"));
     println!("{:?}", hex2patq("e20200"));
     println!("{:?}", hex2patp("60b3"));
@@ -48,7 +48,7 @@ fn main() {
     println!("{:?}", PREFIX_VALUES.get("nod"));
     // println!("{:?}", muk(0xee281300, 2, &BigUint::from(0xcafebabe_u64)));
 
-    for i in 24755..24765 {
+    for i in 24755..24756 {
         println!("{:?}", all_planets(i).last())
     }
 }
