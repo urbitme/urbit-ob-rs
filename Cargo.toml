@@ -1,10 +1,14 @@
 [package]
 name = "urbit-ob"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Utilities for formatting and parsing Urbit's @p and @q data types (patp/patq)."
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/urbitme/urbit-ob-rs"
+authors = ["~nodreb-borrus <nodreb@borr.us>"]
+documentation = "https://docs.rs/urbit-ob"
+keywords = ["urbit"]
 
 [dependencies]
 ibig = { version = "0.3.6", default-features = false, features = ["std", "num-traits"] }
