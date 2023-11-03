@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Utilities for formatting and parsing Urbit's @p and @q data types (patp/patq)."
 license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+readme = "README.md"
 
 [dependencies]
 ibig = { version = "0.3.6", default-features = false, features = ["std", "num-traits"] }
