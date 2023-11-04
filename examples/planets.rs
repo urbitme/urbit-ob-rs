@@ -1,6 +1,7 @@
 use urbit_ob::*;
 
-fn all_planets(star_val: u32) -> Vec<String> {
+fn all_planets(star: u16) -> Vec<String> {
+    let star_val: u32 = star as u32;
     let mut p_names: Vec<String> = Vec::with_capacity(0xffff);
     for value in 0x0001..=0xffff {
         let p_val: u32 = (value << 16) | star_val;
@@ -11,7 +12,6 @@ fn all_planets(star_val: u32) -> Vec<String> {
 }
 
 fn main() {
-    for i in 24755..24756 {
-        println!("{:?}", all_planets(i).last())
-    }
+    let star_val: u16 = patp2big("~rondev").unwrap().try_into().unwrap();
+    println!("{:?}", all_planets(star_val).first().unwrap())
 }
