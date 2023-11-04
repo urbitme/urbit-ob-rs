@@ -92,6 +92,38 @@ pub static SUFFIX_VALUES: Lazy<HashMap<&'static str, u8>> = Lazy::new(|| {
     h
 });
 
+/// Validate the input as a prefix, and return a static copy
+pub fn static_pre(pre: &str) -> Result<&'static str, Error> {
+    PREFIX_VALUES
+        .get_key_value(pre)
+        .ok_or(Error::InvalidPrefix(pre.to_string()))
+        .map(|(k, _)| *k)
+}
+
+/// Validate the input as a suffix, and return a static copy
+pub fn static_suf(suf: &str) -> Result<&'static str, Error> {
+    SUFFIX_VALUES
+        .get_key_value(suf)
+        .ok_or(Error::InvalidSuffix(suf.to_string()))
+        .map(|(k, _)| *k)
+}
+
+/// Get a prefix value with validation
+pub fn prefix_value(pre: &str) -> Result<u8, Error> {
+    PREFIX_VALUES
+        .get(pre)
+        .ok_or(Error::InvalidPrefix(pre.to_string()))
+        .map(|v| *v)
+}
+
+/// Get a suffix value with validation
+pub fn suffix_value(suf: &str) -> Result<u8, Error> {
+    SUFFIX_VALUES
+        .get(suf)
+        .ok_or(Error::InvalidSuffix(suf.to_string()))
+        .map(|v| *v)
+}
+
 fn met(a: usize, b: &UBig) -> usize {
     let zero = UBig::zero();
     let mut b = b.clone();
@@ -120,7 +152,7 @@ where
 /// Convert a bignum (UBig) into a @q-encoded string.
 pub fn big2patq(n: &UBig) -> String {
     let buf = if n.is_zero() {
-        vec!(0)
+        vec![0]
     } else {
         n.to_be_bytes()
     };
@@ -139,7 +171,7 @@ where
 pub fn big2patp(n: &UBig) -> String {
     let n = fein(n);
     let buf = if n.is_zero() {
-        vec!(0)
+        vec![0]
     } else {
         n.to_be_bytes()
     };
@@ -253,21 +285,17 @@ pub fn patq2syls(pat: &str) -> Result<Vec<&str>, Error> {
 }
 
 /// General parser for @p and @q values.
-pub fn pat2syls<'a, 'b>(
-    pat: &'a str,
-    leader: &'b str,
+pub fn pat2syls(
+    pat: &str,
+    leader: &str,
     zero_pad: bool,
-    quad_sep: bool
-) -> Result<Vec<&'a str>, Error> {
+    quad_sep: bool,
+) -> Result<Vec<&'static str>, Error> {
     if let Some(rest) = pat.strip_prefix(leader) {
         let words: Vec<&str> = rest.split('-').collect();
         if words.len() == 1 && words[0].len() == 3 {
             // Galaxy special case
-            if SUFFIX_VALUES.contains_key(words[0]) {
-                Ok(words)
-            } else {
-                Err(Error::InvalidSuffix(words[0].to_string()))
-            }
+            static_suf(words[0]).map(|s| vec![s])
         } else {
             // An empty word indicates double hyphen
             let mut empties = 0;
@@ -289,23 +317,11 @@ pub fn pat2syls<'a, 'b>(
             for word in words.iter().filter(|s| !s.is_empty()) {
                 if word.len() == 6 {
                     let (pre, suf) = word.split_at(3);
-                    if PREFIX_VALUES.contains_key(pre) {
-                        syls.push(pre);
-                    } else {
-                        return Err(Error::InvalidPrefix(pre.to_string()));
-                    }
-                    if SUFFIX_VALUES.contains_key(suf) {
-                        syls.push(suf);
-                    } else {
-                        return Err(Error::InvalidSuffix(suf.to_string()));
-                    }
+                    syls.push(static_pre(pre)?);
+                    syls.push(static_suf(suf)?);
                 } else if word.len() == 3 && first_word {
                     if !zero_pad {
-                        if SUFFIX_VALUES.contains_key(word) {
-                            syls.push(word);
-                        } else {
-                            return Err(Error::InvalidSuffix(word.to_string()));
-                        }
+                        syls.push(static_suf(word)?);
                     } else {
                         return Err(Error::ZeroPadRequired);
                     }
@@ -328,15 +344,9 @@ pub fn syls2buffer(syls: &[&str]) -> Result<Vec<u8>, Error> {
     let mut buf = Vec::with_capacity(syls.len());
     for syl in syls.iter() {
         if suffix {
-            let suf = SUFFIX_VALUES
-                .get(syl)
-                .ok_or(Error::InvalidSuffix(syl.to_string()))?;
-            buf.push(suf.clone());
+            buf.push(suffix_value(syl)?);
         } else {
-            let pre = PREFIX_VALUES
-                .get(syl)
-                .ok_or(Error::InvalidPrefix(syl.to_string()))?;
-            buf.push(pre.clone());
+            buf.push(prefix_value(syl)?);
         }
         suffix = !suffix;
     }
@@ -683,7 +693,10 @@ mod tests {
         assert_eq!(sein("~dev").unwrap(), "~dev");
         assert_eq!(sein("~binhut").unwrap(), "~hut");
         assert_eq!(sein("~sampel-palnet").unwrap(), "~talpur");
-        assert_eq!(sein("~rolruc-midwyl-hathes-palsym").unwrap(), "~hathes-palsym");
+        assert_eq!(
+            sein("~rolruc-midwyl-hathes-palsym").unwrap(),
+            "~hathes-palsym"
+        );
         assert_eq!(
             sein("~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem").unwrap(),
             "~zod"
