@@ -244,32 +244,49 @@ pub fn patp2big(name: &str) -> Result<UBig, Error> {
 
 /// Parse a @p-encoded value into a vector of individual syllables
 pub fn patp2syls(pat: &str) -> Result<Vec<&str>, Error> {
-    pat2syls(pat, "~", true)
+    pat2syls(pat, "~", true, true)
 }
 
 /// Parse a @q-encoded value into a vector of individual syllables
 pub fn patq2syls(pat: &str) -> Result<Vec<&str>, Error> {
-    pat2syls(pat, ".~", false)
+    pat2syls(pat, ".~", false, false)
 }
 
 /// General parser for @p and @q values.
 pub fn pat2syls<'a, 'b>(
     pat: &'a str,
     leader: &'b str,
-    force_zero_pad: bool,
+    zero_pad: bool,
+    quad_sep: bool
 ) -> Result<Vec<&'a str>, Error> {
     if let Some(rest) = pat.strip_prefix(leader) {
-        let words: Vec<&str> = rest.split('-').filter(|s| !s.is_empty()).collect();
+        let words: Vec<&str> = rest.split('-').collect();
         if words.len() == 1 && words[0].len() == 3 {
+            // Galaxy special case
             if SUFFIX_VALUES.contains_key(words[0]) {
                 Ok(words)
             } else {
                 Err(Error::InvalidSuffix(words[0].to_string()))
             }
         } else {
-            let mut syls = Vec::with_capacity(words.len() * 2);
+            // An empty word indicates double hyphen
+            let mut empties = 0;
+            for (i, word) in words.iter().rev().enumerate() {
+                if quad_sep && i % 5 == 4 {
+                    if !word.is_empty() {
+                        return Err(Error::InvalidSeparator);
+                    } else {
+                        empties += 1;
+                    }
+                } else if word.is_empty() {
+                    return Err(Error::InvalidSeparator);
+                }
+            }
+
+            // Iterate non-empty words and split into syls
+            let mut syls = Vec::with_capacity((words.len() - empties) * 2);
             let mut first_word = true;
-            for word in words.iter() {
+            for word in words.iter().filter(|s| !s.is_empty()) {
                 if word.len() == 6 {
                     let (pre, suf) = word.split_at(3);
                     if PREFIX_VALUES.contains_key(pre) {
@@ -283,7 +300,7 @@ pub fn pat2syls<'a, 'b>(
                         return Err(Error::InvalidSuffix(suf.to_string()));
                     }
                 } else if word.len() == 3 && first_word {
-                    if !force_zero_pad {
+                    if !zero_pad {
                         if SUFFIX_VALUES.contains_key(word) {
                             syls.push(word);
                         } else {
@@ -391,8 +408,8 @@ pub fn sein(name: &str) -> Result<String, Error> {
 }
 
 /// General validation for pat type values.
-pub fn is_valid_pat(name: &str, leader: &str, force_zero_pad: bool) -> bool {
-    pat2syls(name, leader, force_zero_pad).is_ok()
+pub fn is_valid_pat(name: &str, leader: &str, force_zero_pad: bool, quad_sep: bool) -> bool {
+    pat2syls(name, leader, force_zero_pad, quad_sep).is_ok()
 }
 
 /// Validate a @p-encoded string.
@@ -560,15 +577,18 @@ mod tests {
             patp2syls("~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem"),
             Ok(_)
         ));
-        // TODO
-        // assert!(matches!(
-        //     patp2syls("~rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful-lomtem"),
-        //     Err(Error::InvalidSeparator)
-        // ));
-        // assert!(matches!(
-        //     patp2syls("~rolruc--midwyl-hathes--palsym-fotnul--pagpur-nopful--lomtem"),
-        //     Err(Error::InvalidSeparator)
-        // ));
+        assert!(matches!(
+            patp2syls("~palsym--fotnul-pagpur-nopful-lomtem"),
+            Ok(_)
+        ));
+        assert!(matches!(
+            patp2syls("~rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful-lomtem"),
+            Err(Error::InvalidSeparator)
+        ));
+        assert!(matches!(
+            patp2syls("~rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful--lomtem"),
+            Err(Error::InvalidSeparator)
+        ));
     }
 
     #[test]
@@ -596,15 +616,14 @@ mod tests {
             patq2syls(".~sampel-word-palnet"),
             Err(Error::InvalidSection(_))
         ));
-        // TODO
-        // assert!(matches!(
-        //     patp2syls(".~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem"),
-        //     Err(Error::InvalidSeparator)
-        // ));
-        // assert!(matches!(
-        //     patp2syls(".~rolruc--midwyl-hathes--palsym-fotnul--pagpur-nopful--lomtem"),
-        //     Err(Error::InvalidSeparator)
-        // ));
+        assert!(matches!(
+            patq2syls(".~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem"),
+            Err(Error::InvalidSeparator)
+        ));
+        assert!(matches!(
+            patq2syls(".~rolruc--midwyl-hathes--palsym-fotnul--pagpur-nopful--lomtem"),
+            Err(Error::InvalidSeparator)
+        ));
     }
 
     #[test]
