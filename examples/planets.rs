@@ -12,6 +12,6 @@ fn all_planets(star: u16) -> Vec<String> {
 }
 
 fn main() {
-    let star_val: u16 = patp2big("~rondev").unwrap().try_into().unwrap();
+    let star_val: u16 = patp2int("~rondev").unwrap();
     println!("{:?}", all_planets(star_val).first().unwrap())
 }

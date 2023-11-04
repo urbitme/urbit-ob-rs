@@ -24,6 +24,8 @@ pub enum Error {
     InvalidDecimal(String),
     #[error("Invalid separator")]
     InvalidSeparator,
+    #[error("Integer value out of bounds")]
+    OutOfBounds,
 }
 
 /// Ordered list of all prefixes.  Use to lookup a prefix by numerical value.
@@ -256,6 +258,22 @@ pub fn dec2patp(dec: &str) -> Result<String, Error> {
     UBig::from_str_radix(dec, 10)
         .map(|n| big2patp(&n))
         .map_err(|_| Error::InvalidDecimal(dec.to_string()))
+}
+
+/// Convert a @q-encoded string to a primitive integer
+pub fn patq2int<T>(name: &str) -> Result<T, Error>
+where
+    T: TryFrom<UBig>,
+{
+    T::try_from(patq2big(name)?).map_err(|_| Error::OutOfBounds)
+}
+
+/// Convert a @p-encoded string to a primitive integer
+pub fn patp2int<T>(name: &str) -> Result<T, Error>
+where
+    T: TryFrom<UBig>,
+{
+    T::try_from(patp2big(name)?).map_err(|_| Error::OutOfBounds)
 }
 
 /// Convert a @q-encoded string to a UBig
@@ -637,9 +655,57 @@ mod tests {
     }
 
     #[test]
+    fn test_patp2int() {
+        assert_eq!(patp2int::<u16>("~binzod").unwrap(), 512);
+        assert_eq!(patp2int::<u32>("~sampel-palnet").unwrap(), 1624961343);
+        assert_eq!(
+            patp2int::<u64>("~mastyr-midwyt-sampel-palnet").unwrap(),
+            14598768375314968895
+        );
+        assert!(matches!(
+            patp2int::<u32>("~mastyr-midwyt-sampel-palnet"),
+            Err(Error::OutOfBounds)
+        ));
+        assert_eq!(
+            patp2int::<u128>("~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem").unwrap(),
+            177292234920987225829036013324996224552
+        );
+        assert!(matches!(
+            patp2int::<u128>("~mastyr--rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem"),
+            Err(Error::OutOfBounds)
+        ));
+    }
+
+    #[test]
+    fn test_patq2int() {
+        assert_eq!(patq2int::<u16>(".~binzod").unwrap(), 512);
+        assert_eq!(patq2int::<u32>(".~sampel-palnet").unwrap(), 74415951);
+        assert_eq!(
+            patq2int::<u64>(".~mastyr-midwyt-sampel-palnet").unwrap(),
+            14598768373764423503
+        );
+        assert!(matches!(
+            patq2int::<u32>(".~mastyr-midwyt-sampel-palnet"),
+            Err(Error::OutOfBounds)
+        ));
+        assert_eq!(
+            patq2int::<u128>(".~rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful-lomtem").unwrap(),
+            177292234920987225829036013324996224552
+        );
+        assert!(matches!(
+            patq2int::<u128>(".~mastyr-rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful-lomtem"),
+            Err(Error::OutOfBounds)
+        ));
+    }
+
+    #[test]
     fn test_patp2dec() {
         assert_eq!(patp2dec("~binzod").unwrap(), "512");
         assert_eq!(patp2dec("~sampel-palnet").unwrap(), "1624961343");
+        assert_eq!(
+            patp2dec("~mastyr-midwyt-sampel-palnet").unwrap(),
+            "14598768375314968895"
+        );
         assert_eq!(
             patp2dec("~rolruc-midwyl-hathes-palsym--fotnul-pagpur-nopful-lomtem").unwrap(),
             "177292234920987225829036013324996224552"
@@ -650,6 +716,10 @@ mod tests {
     fn test_patq2dec() {
         assert_eq!(patq2dec(".~binzod").unwrap(), "512");
         assert_eq!(patq2dec(".~sampel-palnet").unwrap(), "74415951");
+        assert_eq!(
+            patq2dec(".~mastyr-midwyt-sampel-palnet").unwrap(),
+            "14598768373764423503"
+        );
         assert_eq!(
             patq2dec(".~rolruc-midwyl-hathes-palsym-fotnul-pagpur-nopful-lomtem").unwrap(),
             "177292234920987225829036013324996224552"
